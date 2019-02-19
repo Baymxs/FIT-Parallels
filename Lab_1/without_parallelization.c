@@ -3,13 +3,14 @@
 #include <math.h>
 
 #define N 1000
-#define METHOD_PARAMETER 10e-5
-#define LESS_THAN 10e-8
+#define t 10e-5
+#define e 10e-8
 
 double vectorLength(double *vector) {
     double result = 0;
+    int i;
 
-    for (int i = 0; i < N; i++) {
+    for (i = 0; i < N; i++) {
         result += vector[i] * vector[i];
     }
 
@@ -18,9 +19,10 @@ double vectorLength(double *vector) {
 
 double* matrixAndVectorMultiplication(const double *matrix, const double *vector) {
     double *result = (double*)malloc(N * sizeof(double));
+    int i, j;
 
-    for (int i = 0; i < N; i++) {
-        for (int j = 0; j < N; j++) {
+    for (i = 0; i < N; i++) {
+        for (j = 0; j < N; j++) {
             result[i] += matrix[i * N + j] * vector[j];
         }
     }
@@ -30,8 +32,9 @@ double* matrixAndVectorMultiplication(const double *matrix, const double *vector
 
 double* vectorSubtraction(const double *vector_1, const double *vector_2) {
     double *result = (double*)malloc(N * sizeof(double));
+    int i;
 
-    for (int i = 0; i < N; i++) {
+    for (i = 0; i < N; i++) {
         result[i] = vector_1[i] - vector_2[i];
     }
 
@@ -40,8 +43,9 @@ double* vectorSubtraction(const double *vector_1, const double *vector_2) {
 
 double* vectorAndScalarMultiplication(const double *vector, double scalar) {
     double *result = (double*)malloc(N * sizeof(double));
+    int i;
 
-    for (int i = 0; i < N; i++) {
+    for (i = 0; i < N; i++) {
         result[i] = vector[i] * scalar;
     }
 
@@ -55,11 +59,13 @@ int main() {
 
     double *temp = NULL;
 
-    for (int i = 0; i < N; i++) {
+    int i, j;
+
+    for (i = 0; i < N; i++) {
         b[i] = N + 1;
         result[i] = 0;
 
-         for (int j = 0; j < N; j++) {
+         for (j = 0; j < N; j++) {
              if (i == j) {
                  matrix[i*N + j] = 2.0;
              } else {
@@ -90,11 +96,11 @@ int main() {
     int is_calculation_complete = 1;
 
     while (is_calculation_complete) {
-        temp = vectorSubtraction(matrixAndVectorMultiplication(matrix, result), b);
-        if (vectorLength(temp)/vectorLength(b) < LESS_THAN) {
+        temp = vectorSubtraction(matrixAndVectorMultiplication(matrix, result), b); //Ax-b
+        if (vectorLength(temp)/vectorLength(b) < e) {
             is_calculation_complete = 0;
         } else {
-            result = vectorSubtraction(result, vectorAndScalarMultiplication(temp, METHOD_PARAMETER));
+            result = vectorSubtraction(result, vectorAndScalarMultiplication(temp, t)); //x-t(Ax-b)
         }
     }
 
