@@ -3,7 +3,7 @@
 #include <math.h>
 #include <mpi.h>
 
-#define N 10
+#define N 10000
 #define t 10e-6
 #define e 10e-9
 
@@ -85,9 +85,9 @@ int main(int argc, char *argv[]){
 //    printf("\n");
 
 
-    double *result = (double*)malloc(N * sizeof(double));
-    for (int i = 0; i < N; i++) {
-        result[i] = 0;
+    double *full_x = (double*)malloc(N * sizeof(double));
+    for (i = 0; i < N; i++) {
+        full_x[i] = 0;
     }
 
     double start_time, end_time;
@@ -102,12 +102,12 @@ int main(int argc, char *argv[]){
         }
         b_length = sqrt(b_length);
 
-//        printf("Vector b length: %f\n\n", b_length);
+//      printf("Vector b length: %f\n\n", b_length);
     }
 
-    double *process_result = (double*)malloc(lines_per_process[current_process] * sizeof(double));
-    for (int i = 0; i < lines_per_process[current_process]; i++) {
-        process_result[i] = 0;
+    double *part_x = (double*)malloc(lines_per_process[current_process] * sizeof(double));
+    for (i = 0; i < lines_per_process[current_process]; i++) {
+        part_x[i] = 0;
     }
 
     while (is_calculation_complete) {
@@ -115,11 +115,11 @@ int main(int argc, char *argv[]){
         for (i = 0; i < lines_per_process[current_process]; i++) {
             double temp_sum = 0;
             for (j = 0; j < N; j++) {
-                temp_sum += matrix[i*N + j] * result[j]; //Ax
+                temp_sum += matrix[i*N + j] * full_x[j]; //Ax
             }
             temp_sum = temp_sum - b[i]; //Ax-b
 
-            process_result[i] = result[i + first_process_line] - t * temp_sum; //x-t(Ax-b)
+            part_x[i] = full_x[i + first_process_line] - t * temp_sum; //x-t(Ax-b)
             process_length += temp_sum * temp_sum; //part of result length
         }
 
@@ -127,11 +127,11 @@ int main(int argc, char *argv[]){
             /* int MPI_Send(void* buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm)
                Функция выполняет посылку count элементов типа datatype сообщения с идентификатором tag процессу dest в области связи коммуникатора comm
             */
-            MPI_Send(process_result, lines_per_process[current_process], MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
+            MPI_Send(part_x, lines_per_process[current_process], MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
             MPI_Send(&process_length, 1, MPI_DOUBLE, 0, 1, MPI_COMM_WORLD);
         } else {
             for (i = 0; i < lines_per_process[current_process]; i++) {
-                result[i] = process_result[i];
+                full_x[i] = part_x[i];
             }
 
             double result_length = process_length;
@@ -144,7 +144,7 @@ int main(int argc, char *argv[]){
                  int MPI_Recv(void* buf, int count, MPI_Datatype datatype, int source, int tag, MPI_Comm comm, MPI_Status *status)
                  Функция выполняет прием count элементов типа datatype сообщения с идентификатором tag от процесса source в области связи коммуникатора comm.
                  */
-                MPI_Recv(&result[current_line], lines_per_process[i], MPI_DOUBLE, i, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                MPI_Recv(&full_x[current_line], lines_per_process[i], MPI_DOUBLE, i, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
                 current_line += lines_per_process[i];
 
                 double tmp_length;
@@ -154,14 +154,14 @@ int main(int argc, char *argv[]){
             }
             result_length = sqrt(result_length);
 
-            is_calculation_complete = (result_length / b_length >= e);
+            is_calculation_complete =  (result_length / b_length >= e);
         }
         /*
          int MPI_Bcast(void* buffer, int count, MPI_Datatype datatype, int root, MPI_Comm comm)
          Широковещательная рассылка данных выполняется с помощью функции MPI_Bcast. Процесс с номером root рассылает сообщение из своего буфера передачи всем процессам области связи коммуникатора comm.
         */
         MPI_Bcast(&is_calculation_complete, 1, MPI_INT, 0, MPI_COMM_WORLD);//what,how many, type,root,communicator
-        MPI_Bcast(result, N, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+        MPI_Bcast(full_x, N, MPI_DOUBLE, 0, MPI_COMM_WORLD);
     }
 
     if (current_process == 0) {
@@ -171,7 +171,7 @@ int main(int argc, char *argv[]){
 
         printf("Result: ");
         for (i = 0; i < N; i++) {
-            printf("%f ", result[i]);
+            printf("%f ", full_x[i]);
         }
         printf("\n");
     }
@@ -179,10 +179,12 @@ int main(int argc, char *argv[]){
     free(lines_per_process);
     free(matrix);
     free(b);
-    free(result);
-    free(process_result);
+    free(full_x);
+    free(part_x);
 
     /* Функция закрывает все MPI-процессы и ликвидирует все области связи */
     MPI_Finalize();
     return 0;
 }
+
+
